@@ -63,10 +63,11 @@ def PropagateTracks(Satellite: Satrec, start: datetime, direction: int):
         t += timedelta(seconds=direction * ANIMATION_UPDATE_INTERVAL)
         Lat, Lon = StepSat(Satellite, t)
         LonWrapped = (Lon + 180) % 360 - 180
+
+        if LastLon is not None and abs(LastLon - LonWrapped) > 180 - 1e-6: break
+
         Lats.append(Lat)
         Lons.append(LonWrapped)
-        if LastLon is not None and abs(LastLon - LonWrapped) > 180 - 1e-6:
-            break
         LastLon = LonWrapped
     return Lats, Lons
 
@@ -86,7 +87,11 @@ def Update():
     proj = ccrs.PlateCarree()
     fig = plt.figure(figsize=(14, 7), facecolor="#1e1e1e")
     manager = plt.get_current_fig_manager()
-    manager.full_screen_toggle()
+    try:
+        manager.full_screen_toggle()
+    except:
+        pass
+
     ax = plt.axes(projection=proj, facecolor="#1e1e1e")
 
     Running = True
@@ -125,12 +130,16 @@ def Update():
 
             if CurrentTime - LastCompute >= DATA_UPDATE_INTERVAL:
                 TLE1, TLE2 = FetchData()
-                Lat1, Lon1, Lat3, Lon3, _, _, LastUpdate, Satellite = ComputeTracks(TLE1, TLE2)
+                Satellite = Satrec.twoline2rv(TLE1, TLE2)
                 LastCompute = CurrentTime
 
             if CurrentTime - LastPositionUpdate >= ANIMATION_UPDATE_INTERVAL:
                 Lat2, Lon2 = StepSat(Satellite, CurrentUTC)
                 Lon2 = (Lon2 + 180) % 360 - 180
+                Lat1, Lon1 = PropagateTracks(Satellite, CurrentUTC, direction=-1)
+                Lat3, Lon3 = PropagateTracks(Satellite, CurrentUTC, direction=+1)
+                Lat1.reverse()
+                Lon1.reverse()
                 LastPositionUpdate = CurrentTime
 
             for line in Lines:
