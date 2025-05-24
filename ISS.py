@@ -8,7 +8,8 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import time
 
-STEP_SEC = 30
+ANIMATION_UPDATE_INTERVAL = 30
+DATA_UPDATE_INTERVAL = 7200
 MAX_STEPS = 4000
 
 def FetchData():
@@ -59,12 +60,13 @@ def PropagateTracks(Satellite: Satrec, start: datetime, direction: int):
     t = start
     LastLon = None
     for _ in range(MAX_STEPS):
-        t += timedelta(seconds=direction * STEP_SEC)
+        t += timedelta(seconds=direction * ANIMATION_UPDATE_INTERVAL)
         Lat, Lon = StepSat(Satellite, t)
         LonWrapped = (Lon + 180) % 360 - 180
         Lats.append(Lat)
         Lons.append(LonWrapped)
-        if LastLon is not None and abs(LastLon - LonWrapped) > 180 - 1e-6: break
+        if LastLon is not None and abs(LastLon - LonWrapped) > 180 - 1e-6:
+            break
         LastLon = LonWrapped
     return Lats, Lons
 
@@ -75,8 +77,9 @@ def ComputeTracks(TLE1: str, TLE2: str):
     Lon2 = (Lon2 + 180) % 360 - 180
     Lat1s, Lon1s = PropagateTracks(Satellite, CurrentTime, direction=-1)
     FutureLats, FutureLons = PropagateTracks(Satellite, CurrentTime, direction=+1)
-    Lat1s.reverse(); Lon1s.reverse()
-    return Lat1s, Lon1s, Lat2, Lon2, FutureLats, FutureLons, CurrentTime
+    Lat1s.reverse()
+    Lon1s.reverse()
+    return Lat1s, Lon1s, Lat2, Lon2, FutureLats, FutureLons, CurrentTime, Satellite
 
 def Update():
     plt.ion()
@@ -104,12 +107,13 @@ def Update():
 
     try:
         TLE1, TLE2 = FetchData()
-        Lat1, Lon1, Lat2, Lon2, Lat3, Lon3, LastUpdate = ComputeTracks(TLE1, TLE2)
+        Lat1, Lon1, Lat2, Lon2, Lat3, Lon3, LastUpdate, Satellite = ComputeTracks(TLE1, TLE2)
     except Exception as e:
+        print("Initial data fetch error:", e)
         return
 
-    UpdateInterval = 30
     LastCompute = time.time()
+    LastPositionUpdate = time.time()
 
     Lines = []
     Scatters = []
@@ -119,13 +123,20 @@ def Update():
             CurrentTime = time.time()
             CurrentUTC = datetime.utcnow()
 
-            if CurrentTime - LastCompute >= UpdateInterval:
+            if CurrentTime - LastCompute >= DATA_UPDATE_INTERVAL:
                 TLE1, TLE2 = FetchData()
-                Lat1, Lon1, Lat2, Lon2, Lat3, Lon3, LastUpdate = ComputeTracks(TLE1, TLE2)
+                Lat1, Lon1, Lat3, Lon3, _, _, LastUpdate, Satellite = ComputeTracks(TLE1, TLE2)
                 LastCompute = CurrentTime
 
-            for line in Lines: line.remove()
-            for scatter in Scatters: scatter.remove()
+            if CurrentTime - LastPositionUpdate >= ANIMATION_UPDATE_INTERVAL:
+                Lat2, Lon2 = StepSat(Satellite, CurrentUTC)
+                Lon2 = (Lon2 + 180) % 360 - 180
+                LastPositionUpdate = CurrentTime
+
+            for line in Lines:
+                line.remove()
+            for scatter in Scatters:
+                scatter.remove()
             Lines.clear()
             Scatters.clear()
 
@@ -147,6 +158,7 @@ def Update():
             plt.pause(0.1)
 
         except Exception as e:
+            print("Error in update loop:", e)
             plt.pause(5)
 
 if __name__ == "__main__":
