@@ -89,11 +89,11 @@ def Update():
     manager.full_screen_toggle()
     ax = plt.axes(projection=proj, facecolor="#1e1e1e")
 
-    running = True
-    def on_close(event):
-        nonlocal running
-        running = False
-    fig.canvas.mpl_connect('close_event', on_close)
+    Running = True
+    def OnClose(event):
+        nonlocal Running
+        Running = False
+    fig.canvas.mpl_connect('close_event', OnClose)
 
     ax.set_global()
     ax.add_feature(cfeature.LAND, facecolor="#2b2b2b", zorder=0)
@@ -118,7 +118,7 @@ def Update():
     Lines = []
     Scatters = []
 
-    while running:
+    while Running:
         try:
             CurrentTime = time.time()
             CurrentUTC = datetime.utcnow()
