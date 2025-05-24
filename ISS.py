@@ -8,7 +8,7 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import time
 
-ANIMATION_UPDATE_INTERVAL = 30
+ANIMATION_UPDATE_INTERVAL = 1
 DATA_UPDATE_INTERVAL = 7200
 MAX_STEPS = 4000
 
